@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Net-Graphite
-version:            0.01
+version:            0.10
 abstract:           ~
 author:
     - Scott Lanning <slanning@cpan.org>
