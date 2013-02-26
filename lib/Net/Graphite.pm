@@ -4,7 +4,7 @@ use warnings;
 use Carp qw/confess/;
 use IO::Socket::INET;
 
-$Net::Graphite::VERSION = '0.10';
+$Net::Graphite::VERSION = '0.11';
 
 our $TEST = 0;
 
@@ -14,10 +14,17 @@ sub new {
         host            => '127.0.0.1',
         port            => 2003,
         fire_and_forget => 0,
+        proto           => 'tcp',
+        timeout         => 1,
         # path
         @_,
         # _socket
     }, $class;
+}
+
+sub trace {
+    my (undef, $val_line) = @_;
+    print STDERR $val_line;
 }
 
 sub send {
@@ -32,6 +39,8 @@ sub send {
 
     my $plaintext = "$path $value $time\n";
 
+    $self->trace($plaintext) if $self->{trace};
+
     unless ($Net::Graphite::TEST) {
         if ($self->connect()) {
             # for now, I'll assume these don't fail...
@@ -45,12 +54,14 @@ sub send {
 
 sub connect {
     my $self = shift;
-    return $self->{_socket} if $self->{_socket};
+    return $self->{_socket}
+      if $self->{_socket} && $self->{_socket}->connected;
 
     $self->{_socket} = IO::Socket::INET->new(
         PeerHost => $self->{host},
         PeerPort => $self->{port},
-        Proto => 'tcp',
+        Proto    => $self->{proto},
+        Timeout  => $self->{timeout},
     );
     confess "Error creating socket: $!"
       if not $self->{_socket} and not $self->{fire_and_forget};
@@ -81,6 +92,9 @@ Net::Graphite - Interface to Graphite
       host => '127.0.0.1',   # default
       port => 2003,          # default
       path => 'foo.bar.baz', # optional
+      trace => 0,            # copy output to STDERR if true
+      proto => 'tcp',        # default (can be 'udp')
+      timeout => 1,          # default
   );
   $graphite->send(6);        # default time is "now"
 
@@ -105,7 +119,7 @@ Interface to Graphite which doesn't depend on AnyEvent.
 
 AnyEvent::Graphite
 
-http://graphite.wikidot.com/
+L<http://graphite.wikidot.com/>
 
 =head1 AUTHOR
 
