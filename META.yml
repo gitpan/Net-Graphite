@@ -17,5 +17,7 @@ no_index:
   directory:
     - t
     - inc
-requires: {}
-version: 0.12
+requires:
+  IO::Socket::INET: 0
+  Scalar::Util: 0
+version: 0.13
