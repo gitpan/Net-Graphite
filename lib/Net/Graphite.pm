@@ -1,11 +1,12 @@
 package Net::Graphite;
 use strict;
 use warnings;
+use Errno qw(EINTR);
 use Carp qw/confess/;
 use IO::Socket::INET;
 use Scalar::Util qw/reftype/;
 
-$Net::Graphite::VERSION = '0.13';
+$Net::Graphite::VERSION = '0.14';
 
 our $TEST = 0;   # if true, don't send anything to graphite
 
@@ -82,8 +83,17 @@ sub send {
 
     unless ($Net::Graphite::TEST) {
         if ($self->connect()) {
-            # for now, I'll assume these don't fail...
-            $self->{_socket}->send($plaintext);
+            my $buf = $plaintext;
+            while (length($buf)) {
+                my $res = $self->{_socket}->send($buf);
+                if (not defined $res) {
+                    next if $! == EINTR;
+                    last; # not sure what to do here
+                }
+
+                last unless $res; # should never happen
+                substr($buf, 0, $res, '');
+            }
         }
         # I didn't close the socket!
     }
@@ -195,8 +205,27 @@ Net::Graphite - Interface to Graphite
 
  -OR-
 
-  # send a data structure, default transformer for HoH: epoch => key => key => key .... => value
+  # send a data structure,
+  # here using the default transformer for Hash of Hash: epoch => key => key .... => value
   $graphite->send(data => $hash);
+
+  # example of hash structure:
+  1234567890 => {
+      foo => {
+          bar => {
+              db1 => 3,
+              db2 => 7,
+              db3 => 2,
+              ....
+          },
+          baz => 42,
+      },
+  },
+  would be:
+  foo.bar.db1 = 3
+  foo.bar.db2 = 7
+  foo.bar.db3 = 2
+  foo.baz = 42
 
   # send a data structure, providing your own plaintext transformer
   # (the callback's only arg is the data structure, return a text string one metric on each line)
